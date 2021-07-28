@@ -32,7 +32,7 @@ contract Marketplace {
     );
 
     constructor() public {
-        name = "Dapp University Marketplace";
+        name = "Blockchain Test App";
     }
 
     function createProduct(string memory _name, uint _price) public {

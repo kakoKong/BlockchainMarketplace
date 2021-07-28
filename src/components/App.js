@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import Web3 from 'web3'
 import logo from '../logo.png';
 import './App.css';
+import Nav from './navBar.js'
+import Main from './Main.js'
 import Marketplace from '../abis/Marketplace.json';
 
 class App extends Component {
@@ -29,11 +31,25 @@ class App extends Component {
     console.log(accounts)
     this.setState({account: accounts[0]})
     const networkId = await web3.eth.net.getId()
+    const networkData = Marketplace.networks[networkId]
+    if(networkData){
+      console.log(networkData.address)
+      const marketplace = web3.eth.Contract(Marketplace.abi, networkData.address)
+      this.setState({ marketplace })
+      const productCount = await marketplace.methods.productCount().call()
+      this.setState({ productCount })
+      for (var i = 1; i<= productCount; i++){
+        const product = await marketplace.methods.products(i).call()
+        this.setState({
+          products: [ ...this.state.products, product]
+        })
+      }
+      this.setState( { loading: false })
+      console.log(this.state.products)
+    } else{
+      window.alert('Marketplace Contract not deployed')
+    }
 
-    const address = Marketplace.networks[networkId].address;
-    const abi = Marketplace.abi;
-    const marketplace = web3.eth.Contract(abi, address)
-    console.log(networkId)
   }
 
   constructor(props){
@@ -44,49 +60,45 @@ class App extends Component {
       products: [],
       loading: true
     }
+
+    this.createProduct = this.createProduct.bind(this)
+    this.purchaseProduct = this.purchaseProduct.bind(this)
   }
+
+  createProduct(name, price) {
+    this.setState({ loading: false })
+    this.state.marketplace.methods.createProduct(name, price).send( {from: this.state.account })
+    .once('receipt', (receipt) => {
+      this.setState({ loading: false })
+    })
+  }
+
+  purchaseProduct(id, price) {
+    this.setState({ loading: false })
+    console.log('buying');
+    this.state.marketplace.methods.purchaseProduct(id).send( {from: this.state.account, value: price })
+    .once('receipt', (receipt) => {
+      this.setState({ loading: false })
+    })
+  }
+
   render() {
     return (
       <div>
-        <nav className="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
-          <a
-            className="navbar-brand col-sm-3 col-md-2 mr-0"
-            href="http://www.dappuniversity.com/bootcamp"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Dapp University
-          </a>
-          <p stye={{color: 'white'}}>
-            {this.state.account}
-          </p>
-        </nav>
+        <Nav account={this.state.account}/>
         <div className="container-fluid mt-5">
-          <div className="row">
-            <main role="main" className="col-lg-12 d-flex text-center">
-              <div className="content mr-auto ml-auto">
-                <a
-                  href="http://www.dappuniversity.com/bootcamp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img src={logo} className="App-logo" alt="logo" />
-                </a>
-                <h1>Dapp University Starter Kit</h1>
-                <p>
-                  Edit <code>src/components/App.js</code> and save to reload.
-                </p>
-                <a
-                  className="App-link"
-                  href="http://www.dappuniversity.com/bootcamp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  LEARN BLOCKCHAIN <u><b>NOW! </b></u>
-                </a>
-              </div>
-            </main>
+        {
+        this.state.loading ? 
+          <div>
+            Loading...
           </div>
+        : 
+          <Main 
+          createProduct={this.createProduct} 
+          products={this.state.products}
+          purchaseProduct={this.purchaseProduct} 
+          />
+        }
         </div>
       </div>
     );
